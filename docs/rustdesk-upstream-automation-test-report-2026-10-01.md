@@ -1,118 +1,103 @@
-# RustDesk upstream automation — implementation checkpoint, 2026-10-01
+# RustDesk upstream automation report — 2026-10-01
 
-**Status: implementation uploaded; Phase 3 GitHub execution/acceptance still pending.**
-This is not a completed test report. No Phase 3 build or test prerelease is claimed.
+Status: stable automatic build/test-prerelease path PASS; multi-generation implementation
+locally verified, new Actions acceptance PENDING. Entire Phase 3 is NOT yet accepted.
 
-Test repository: https://github.com/billradar/rustdesk-custom-test
+## Verified Stable pipeline
 
-## Architecture
+Official stable 1.4.9 SHA `6c578292e8ebbbec708b76986ba8c4bc7c509747`.
+Maintenance commit `2a126a2f3e3776dd9a3f12750cad47ea2c24cc42`.
+[Run 36819181305](https://github.com/billradar/rustdesk-custom-test/actions/runs/36819181305):
+preflight/Rust, Bridge/Flutter analyze, Standard/SOS Windows AMD64 full builds and final
+paired provenance/checksum/architecture gates all PASS.
 
-`upstream-compatibility.yml`: daily UTC 03:23 and manual → query default_branch →
-freeze commit SHA → reusable test-build validation_only → patch/config/API/native
-mock + real hbb_common Rust check + generated-bridge Flutter analysis → reports.
-No Windows client jobs or release writes on this path.
+[Standard prerelease](https://github.com/billradar/rustdesk-custom-test/releases/tag/v1.4.9-custom-test.1)
+[ SOS prerelease](https://github.com/billradar/rustdesk-custom-test/releases/tag/v1.4.9-sos-test.1)
+Both contain client ZIP, build-info.json and SHA256SUMS. Both are prerelease=true, draft=false.
+No asset, manifest, checksum or release note was modified by the generation migration.
 
-`release-check.yml`: UTC 05:41/17:41 and manual → official stable Release metadata →
-freeze tag/SHA → dedup revision → test-build preflight → bridge/analyze → independent
-Standard/SOS Windows x86_64 jobs → metadata/checksum/architecture pair gate → two
-staged drafts → test prereleases only. Both client artifacts must exist and match provenance.
+## Patch generation architecture
 
-Patch files were not modified. Official submodules are initialized at gitlink SHAs.
-Source code remains temporary and is not committed to this maintenance repository.
+`patchsets/v1` contains the six original patches moved without changing a byte; integrity
+metadata freezes canonical hashes. Both known historical exact upstream SHAs map to v1.
+`patchsets/v2` implements the same design contract on the new API generation. It retains
+Common then optional SOS layering, official gitlinks and only small source/UI diffs.
+No full source tree is committed and hbb_common is not vendored.
 
-## Actual local tests
+v1 common hash: `87b7fb949b3bbc55c6d1e166909e167ebb8e0b6586630c0269f6440ba0542531`.
+v1 SOS hash: `d752022800a8008b10aedd1a79412a00af027464b1754b068c35a0b5b439ea34`.
+v1 metadata status: validated, backed by the actual stable run above; runtime validation
+is not part of that status. v2 status: development until real Rust/Flutter/Bridge evidence.
 
-- Two separate clean official `1.4.9` source trees initialized with official submodules,
-  SHA `6c578292e8ebbbec708b76986ba8c4bc7c509747`.
-- Common clean apply: PASS. Common + SOS clean apply: PASS.
-- Configuration wiring/static contracts: PASS for both. No rejected hunks.
-- Standard/SOS structural separation: PASS.
-- Build-system hashes against historical profile: no differences at 1.4.9.
-- Six Python regression tests: PASS. They cover API release flags, prerelease exclusion,
-  no-new dedup, new-stable decision, forced artifact-only rebuild, required paired provenance,
-  checksum corruption, wrong PE architecture and a false Runtime PASS status.
-- Synthetic nonexistent-file `git apply --check` refusal: PASS locally.
-- YAML parsing, embedded Bash syntax and Python compilation: PASS.
-- Local Rust/Flutter compilation: NOT RUN (these toolchains are not installed here).
-  They are required in GitHub preflight; no green build claim substitutes for their execution.
+## API migration
 
-## Actual development branch finding
+[API migration report and behavior contracts](api-migration-v1-to-v2.md).
+Current queried upstream default branch master at
+`fada664df7a294d1d1a9ca3e7cd3637069122f17`.
+The configuration key moved from hbb_common config::keys to base::config::keys.
+Upstream also removed plugin home/settings entries and changed general/printer guards.
+v2 adopts the new key, retains upstream current UI predicates and adds historical SOS
+restrictions to remaining entries. No native controller prohibition or password V2.
 
-Upstream default_branch API returns `master` at inspection time; the workflow queries
-this dynamically. Current SHA `fada664df7a294d1d1a9ca3e7cd3637069122f17`.
-Common patches clean apply, but the interface dependency check fails:
-`hbb_common::config::keys::OPTION_ALLOW_REMOTE_CONFIG_MODIFICATION` was moved to
-`libs/base/src/config/keys.rs`. The preserved helper still uses the historical path.
-Thus current development compatibility is **FAIL at the API layer**, not a patch conflict.
-The old stable 1.4.9 still supports the dependency. No automatic patch change was performed.
-Upstream build-file changes are also detected as warnings.
+Original development detection [run 36819199270](https://github.com/billradar/rustdesk-custom-test/actions/runs/36819199270)
+correctly failed API checks and skipped further jobs. This detection is functioning; it
+is not a compatibility PASS. New v2 Actions execution is pending.
 
-## Stable detection / version deduplication
+## Resolver / regression evidence
 
-Official Release API flags inspected: 1.4.9 stable, 1.5.0 prerelease, nightly prerelease.
-Only non-draft, non-prerelease numeric versions are eligible; numeric sorting selects
-latest stable. Manual upstream_ref must identify one of those official releases.
+Local actual independent clean clone/submodule probes:
 
-Tags: `v1.4.9-custom-test.1`, `v1.4.9-sos-test.1` for revision 1.
-Internal upstream Cargo/Flutter/Windows versions remain unchanged.
-An existing complete pair must match upstream SHA, canonical LF patch hashes and expected
-assets. It exits without builds. force_rebuild produces artifacts only for an already
-published revision. Partial/different existing releases fail for manual review; never overwrite.
+| Case | Result |
+|---|---|
+| Stable 1.4.9 exact SHA | fixed v1; Common + SOS apply/config/API PASS |
+| Current development SHA | v1 INCOMPATIBLE; v2 Common + SOS PREFLIGHT_COMPATIBLE; select v2 |
+| Synthetic incompatible Git source | both rejected; NO COMPATIBLE PATCH SET; no fallback |
 
-## Standard / SOS / test prereleases
+All six v1 migrated patches compare byte-for-byte equal to the original Git blobs.
+Eight local regression tests PASS, plus Python compile, YAML and embedded Bash syntax.
+These do not substitute for real compile/analyze/Bridge Actions tests.
 
-Phase 1 full build PASS evidence:
-https://github.com/billradar/rustdesk-custom-test/actions/runs/36812800414
-This used post-tag SHA `005a8b4a04fd906c707eefd69c4898aa2c696202`.
+Resolver probes are static/config selection gates in fresh separate clones. Selected
+candidate still requires actual Rust check, Bridge and Flutter analyze downstream; the
+aggregate report promotes to COMPATIBLE only when those jobs succeed. Real Rust probes
+compile the helper against hbb_common for v1 or base + hbb_common for v2. Full Windows
+build is separate and optional for the development branch, with artifacts only.
 
-Phase 3 official stable 1.4.9 Windows Standard build: **NOT RUN**.
-Phase 3 official stable 1.4.9 Windows SOS build: **NOT RUN**.
-Phase 3 client artifacts/metadata/checksum/architecture: **NOT RUN**.
-Phase 3 test prereleases: **NOT CREATED**.
-GitHub failure-path blocking and no-new cheap exit: **NOT RUN** (unit/local tests only).
-Actual cron execution: **NOT OBSERVED** (schedule configured, not execution evidence).
+build-info and new test release notes record patchset. Historical 1.4.9 notes lack this
+field; only its exact validated SHA/v1/frozen hashes admit legacy-format dedup. Nothing
+is backfilled into old releases. New unknown releases require explicit Patch Set notes.
 
-Official stable tag is two upstream commits before Phase 1: clipboard hardening and
-Korean translation are absent. This is an explicit source baseline difference, not a
-custom behavior rewrite. Runtime comparison was waived; no functional equivalence claim.
+## Remaining Actions acceptance
 
-## Security / limitations
+Release deduplication: LOCAL PASS / ACTIONS NOT TESTED.
+Synthetic patch failure gate: LOCAL PASS / ACTIONS NOT TESTED.
+New development v2 Rust/Flutter/Bridge: NOT RUN.
+New development Windows Standard/SOS: NOT RUN (optional artifact-only deep validation).
+Scheduled execution: CONFIGURED / NOT OBSERVED. No schedule PASS is inferred from manual runs.
 
-All normal jobs contents:read; only test prerelease job contents:write, GITHUB_TOKEN.
-No PAT, production Variables/Secrets, new secret storage, untrusted PR trigger or
-pull_request_target. Inputs enter quoted env variables/Python APIs, never shell code.
-Third-party Actions stay pinned to full commit SHAs. Downloads use the already proven
-upstream path. Floating official custom Flutter engine `main` remains a reproducibility risk.
+Run upstream-compatibility manually after the migration commit. Run release-check on
+1.4.9 with force=false/simulate=false to verify cheap dedup. Then run with simulate=true
+and force=false to prove early failure, diagnostic artifact and skipped build/release.
+The GitHub connector lacks workflow_dispatch; manual start is still required. Full Phase 3
+acceptance remains pending these actual tests and an observed schedule event.
 
-The release validator checks all payload checksums, every root PE binary machine type,
-exact upstream tag/SHA/run/maintenance SHA, variant and canonical patch hashes. Artifacts
-are downloaded from the same workflow run only. Both draft assets must upload before exposure.
-GitHub cannot atomically expose two releases: a final API failure can leave partial exposure;
-the job fails and subsequent dedup blocks automatic overwrite until manual recovery.
+## Security / limitations / repository safety
 
-Rust quick check compiles the actual helper against real hbb_common via a temporary binary
-in the temporary submodule, not the full native codec app. Flutter analyze covers the four
-patch-related pages; error severity fails, upstream warning/info remain in diagnostic logs.
-Full Windows Rust/Flutter builds remain required before publishing. Static SOS guards do
-not prove native controller denial, navigation closure, or remote-session behavior.
+Normal jobs contents:read, only final test prerelease job contents:write/GITHUB_TOKEN.
+No PAT, production credentials, untrusted PR workflow, floating third-party Action refs
+or automatic patch rewriting. Official custom Flutter engine main download remains a
+reproducibility risk, as do hosted runners/apt packages. Two GitHub releases cannot be
+atomically exposed; partial final API failure requires manual recovery, never overwrite.
 
-- Build Reproduction: **PASS (Phase 1 only)**
-- Runtime/UI Validation: **SKIPPED BY USER**
-- Real Remote Session Validation: **NOT TESTED**
-- Unsigned binaries; TEST ONLY fictional configuration; Windows x86_64 only.
-- Password Security V2 deferred; old embedded plaintext preset is extractable.
-- No production repository/release, production configuration, platform expansion or old Actions changes.
+Build Reproduction: PASS.
+Runtime/UI Validation: SKIPPED BY USER.
+Real Remote Session Validation: NOT TESTED.
+Code Signing: NOT ENABLED.
+Configuration: TEST ONLY.
+Windows x86_64 only. Password Security V2 deferred; embedded preset remains extractable.
+SOS is historical UI hiding, not native Level 3 controller disablement.
 
-## Old repository safety
-
-No write call or workflow dispatch was made to `billradar/rustdesk` or
-`billradar/rustdesk-sos`. All this phase's remote write operations target only
-`billradar/rustdesk-custom-test` (normal forward commits; no force push).
-
-## Next execution evidence
-
-Run both new workflows manually in the test repo. Stable input: upstream_ref `1.4.9`,
-force_rebuild false, simulate_failure false. Record exact jobs and artifacts; repair only
-minimal necessary build-adapter issues if execution fails. After a complete pair exists,
-rerun for dedup and separately run simulate_failure true to prove early blocking.
-Then update this report with real run/prerelease links and observed schedule evidence.
+All writes target only billradar/rustdesk-custom-test. Old billradar/rustdesk and
+billradar/rustdesk-sos receive zero writes/triggers. Existing releases untouched.
+No production repository, production config/release, old Actions deletion/archive,
+signing or platform expansion performed.

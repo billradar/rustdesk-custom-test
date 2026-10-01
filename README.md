@@ -20,12 +20,12 @@ SOS = 同一官方 SHA + Common + SOS。
 
 | Patch | 目标 / 用途 |
 |---|---|
-| common/0001-hbb-server-defaults.patch | 官方 hbb_common/src/config.rs：用编译参数替换 ID server、公钥常量；在 submodule 内 apply |
-| common/0002-client-defaults.patch | src/common.rs：API fallback；原有 hard password、verification-method、remote configuration 和 hide-cm 默认行为；可选 relay 默认值 |
-| common/0003-hide-cm-setting.patch | desktop_setting_page.dart：恢复旧 Standard 的 hide-cm 设置项 |
-| sos/0001-sos-mode.patch | 原有 BUILTIN sos-mode=Y；复用 Common 初始化，不重复服务器配置 |
-| sos/0002-sos-home.patch | connection_page.dart、desktop_home_page.dart：逐字保留旧 SOS 首页和提示隐藏 |
-| sos/0003-sos-settings.patch | desktop_setting_page.dart、desktop_tab_page.dart：逐字保留旧 SOS settings/图标限制 |
+| v1/common/0001-hbb-server-defaults.patch | 官方 hbb_common/src/config.rs：用编译参数替换 ID server、公钥常量；在 submodule 内 apply |
+| v1/common/0002-client-defaults.patch | src/common.rs：API fallback；原有 hard password、verification-method、remote configuration 和 hide-cm 默认行为；可选 relay 默认值 |
+| v1/common/0003-hide-cm-setting.patch | desktop_setting_page.dart：恢复旧 Standard 的 hide-cm 设置项 |
+| v1/sos/0001-sos-mode.patch | 原有 BUILTIN sos-mode=Y；复用 Common 初始化，不重复服务器配置 |
+| v1/sos/0002-sos-home.patch | connection_page.dart、desktop_home_page.dart：逐字保留旧 SOS 首页和提示隐藏 |
+| v1/sos/0003-sos-settings.patch | desktop_setting_page.dart、desktop_tab_page.dart：逐字保留旧 SOS settings/图标限制 |
 
 每个补丁先 `git apply --check` 再 apply；失败立即停止，不构建，不生成客户端 artifact。失败诊断会列出补丁及 Git 的冲突文件/hunk。UI SHA256 清单来源于两个旧仓库的上述固定提交，验证复现而非仅检查关键词。
 
@@ -116,3 +116,13 @@ Patch revision 存在 `patch-revision.txt`。同一 upstream 修订 Patch 后人
 测试 Prerelease 固定声明 Runtime/UI NOT TESTED (SKIPPED BY USER)、Real remote session NOT TESTED、Code signing NOT ENABLED、Configuration TEST ONLY。定时与手动路径都继续使用公开虚构 fixtures，绝不读取生产 Variables/Secrets。
 
 配置/密码逻辑与成功 Patch 不变。官方 Flutter engine main 下载仍浮动，无法保证字节级可复现；文件下载 SHA 写日志。Windows runner 和 apt 依赖也会变化。自动 Issue、密码 V2、生产仓库和新增平台不在本阶段。
+
+## 多代 Patch Set
+
+成功的 1.4.9 补丁已逐字节迁至 patchsets/v1，metadata 保留原构建证据和 hashes；不修改已发布资产。patchsets/v2 基于新客户端 config-key API 和现存 Flutter UI 实现。行为契约及变化见 [API Migration](docs/api-migration-v1-to-v2.md)。
+
+patchsets/index.json 对已验证精确 SHA 固定映射到 v1；未知 SHA 用独立干净 clones 探测候选 v2/v1，严格 patch + 配置/接口检查选取预检兼容候选。选定后仍必须通过真实 Rust 快检、Bridge 和 Flutter analyze 才报告完整兼容 PASS，Windows 全构建另计。没有候选通过则 fail closed，绝不默认套用最新版。
+
+v1/v2 metadata 中的 hashes 是审查后固定值，不会在 CI 自动重算并接受修改。已有 v1 冻结；新的实质迁移创建新一代。每次 artifact/build-info/未来 Release Notes 记录 patchset；Standard/SOS 使用同一 resolver 输出。历史 Release 未包含 patchset 字段时，仅精确已验证 1.4.9/v1/hash 组合允许旧格式去重，绝不修改旧 notes/manifest。
+
+手动重新运行 release-check 1.4.9 可验证去重；simulate_failure=true 可验证昂贵 jobs/发布阻断。upstream-compatibility 用 candidate 并保留每代选择诊断。v2 仍为 development，完整兼容性需以新 Actions run 为证据；schedule 仅配置不等于观察到运行。
