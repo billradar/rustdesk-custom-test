@@ -85,6 +85,9 @@ def build_system(tree):
         path = tree / file
         if not path.is_file() or hashlib.sha256(path.read_bytes().replace(b'\r\n', b'\n')).hexdigest() != digest:
             changed.append(file)
+    for path in (tree / '.github/workflows').rglob('*'):
+        if path.is_file() and path.relative_to(tree).as_posix() not in baseline:
+            changed.append(path.relative_to(tree).as_posix())
     for file in ('build.py', 'Cargo.toml', 'Cargo.lock', 'flutter/pubspec.yaml', '.gitmodules', 'vcpkg.json',
                  '.github/patches/flutter_3.24.4_dropdown_menu_enableFilter.diff'):
         if not (tree / file).is_file():
@@ -181,6 +184,14 @@ def main():
     except Exception as error:
         report['Overall'] = 'FAIL'
         report['Reason'] = str(error)
+        report['Failed stage'] = args.mode
+        report['Failed variant'] = variant if 'variant' in locals() else 'unknown'
+        if 'log' in locals() and log.exists():
+            diagnostic = log.read_text()
+            failed_patch = re.search(r'STOP: failed patch ([^;]+)', diagnostic)
+            if failed_patch:
+                report['Failed patch'] = failed_patch.group(1)
+            report['Failed files'] = sorted(set(re.findall(r'error: patch failed: (.+?):[0-9]+', diagnostic)))
         print(str(error), file=sys.stderr)
     finally:
         report_path.write_text(json.dumps(report, indent=2) + '\n')
