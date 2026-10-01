@@ -1,7 +1,7 @@
 name: TEST - Upstream development compatibility
 on:
   schedule:
-    - cron: '7,17,27,37,47,57 * * * *'
+    - cron: '23 3 * * *'
   workflow_dispatch:
 permissions:
   contents: read
