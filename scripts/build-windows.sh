@@ -10,7 +10,16 @@ mkdir -p "$root/.work" "$root/artifacts"
 workspace=$(mktemp -d "$root/.work/$variant.XXXXXX")
 bash "$root/scripts/prepare.sh" "$ref" "$workspace"
 bash "$root/scripts/apply-patches.sh" "$workspace" "$variant"
-python3 "$root/scripts/verify-source.py" "$workspace" "$variant"
+python3 "$root/scripts/verify-source.py" "$workspace" "$variant" ${AUTOMATION_MODE:+--automation}
+if [[ -n "${AUTOMATION_MODE:-}" ]]; then
+    python3 - "$workspace" "$variant" "$root/scripts" <<'PY'
+import sys
+from pathlib import Path
+sys.path.insert(0, sys.argv[3])
+from compatibility import contracts
+contracts(Path(sys.argv[1]), sys.argv[2])
+PY
+fi
 # Bridge files must have been generated from this exact official baseline.
 : "${RUSTDESK_BRIDGE_DIR:?Generate the official Flutter bridge first (see test-build.yml)}"
 python3 "$root/scripts/package.py" restore-bridge "$workspace" "$RUSTDESK_BRIDGE_DIR"
