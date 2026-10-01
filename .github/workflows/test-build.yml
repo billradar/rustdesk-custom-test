@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       upstream_ref:
-        description: 'Phase 1 fixed official SHA (1.4.9 + 2 upstream commits)'
+        description: 'Official ref; resolved once to immutable SHA'
         type: string
         required: true
         default: '005a8b4a04fd906c707eefd69c4898aa2c696202'
@@ -14,11 +14,124 @@ on:
         options: [both, standard, sos]
         default: both
 
+  workflow_call:
+    inputs:
+      upstream_ref:
+        type: string
+        required: true
+      upstream_tag:
+        type: string
+        default: ''
+      variant:
+        type: string
+        default: both
+      validation_only:
+        type: boolean
+        default: false
+      simulate_failure:
+        type: boolean
+        default: false
+      upstream_branch:
+        type: string
+        default: ''
+
 permissions:
   contents: read
 
+concurrency:
+  group: test-build-${{ github.workflow }}-${{ github.ref }}-${{ inputs.upstream_ref }}
+  cancel-in-progress: false
+
+env:
+  AUTOMATION_MODE: '1'
+
 jobs:
+  resolve:
+    runs-on: ubuntu-22.04
+    outputs:
+      sha: ${{ steps.resolve.outputs.upstream_sha }}
+      revision: ${{ steps.revision.outputs.revision }}
+      tag: ${{ steps.revision.outputs.tag }}
+      artifact_version: ${{ steps.revision.outputs.artifact_version }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+      - id: resolve
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUESTED_REF: ${{ inputs.upstream_ref }}
+        run: python3 scripts/upstream.py default --ref "$REQUESTED_REF"
+      - id: revision
+        env:
+          REQUESTED_REF: ${{ inputs.upstream_ref }}
+          REQUESTED_TAG: ${{ inputs.upstream_tag }}
+          RESOLVED_SHA: ${{ steps.resolve.outputs.upstream_sha }}
+        run: |
+          python3 - <<'PYCODE'
+          import os,re
+          from pathlib import Path
+          revision=Path('patch-revision.txt').read_text().strip()
+          if not re.fullmatch(r'[1-9][0-9]{0,5}',revision):
+              raise SystemExit('Invalid revision')
+          with open(os.environ['GITHUB_OUTPUT'],'a') as f:
+              f.write('revision='+revision+'\n')
+              tag=os.environ['REQUESTED_TAG'] or (os.environ['REQUESTED_REF'] if re.fullmatch(r'v?[0-9]+\.[0-9]+\.[0-9]+',os.environ['REQUESTED_REF']) else '')
+              if tag and not re.fullmatch(r'v?[0-9]+\.[0-9]+\.[0-9]+',tag):
+                  raise SystemExit('Invalid upstream tag')
+              f.write('tag='+tag+'\n')
+              f.write('artifact_version='+(tag.lstrip('v') or 'source-'+os.environ['RESOLVED_SHA'][:12])+'\n')
+          PYCODE
+
+  preflight:
+    needs: resolve
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    env:
+      UPSTREAM_EXPECTED_SHA: ${{ needs.resolve.outputs.sha }}
+      UPSTREAM_TAG: ${{ needs.resolve.outputs.tag }}
+      UPSTREAM_BRANCH: ${{ inputs.upstream_branch }}
+      SIMULATE_FAILURE: ${{ inputs.simulate_failure }}
+      SELECTED_VARIANT: ${{ inputs.variant }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
+        with:
+          toolchain: '1.75.0'
+      - name: Automation gate regression tests
+        run: python3 -m unittest discover -s tests -v
+      - name: Patch/API/config gate before expensive Windows dependencies
+        run: |
+          source scripts/test-config.sh
+          args=()
+          if [[ "$SIMULATE_FAILURE" == true ]]; then args+=(--simulate-failure); fi
+          python3 scripts/compatibility.py prepare --sha "$UPSTREAM_EXPECTED_SHA" --variant "$SELECTED_VARIANT" "${args[@]}"
+      - name: Real hbb_common configuration API compilation
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libssl-dev libx11-dev libxfixes-dev libxi-dev libxtst-dev pkg-config protobuf-compiler
+          source scripts/test-config.sh
+          python3 scripts/compatibility.py rust --variant "$SELECTED_VARIANT"
+      - name: Preserve diagnostics even on conflict
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: preflight-report-${{ github.run_id }}
+          path: |
+            .work/validation/*.json
+            .work/validation/*.md
+            .work/validation/*.log
+          if-no-files-found: warn
+          retention-days: 14
+
   bridge:
+    needs: [resolve, preflight]
+    env:
+      UPSTREAM_EXPECTED_SHA: ${{ needs.resolve.outputs.sha }}
+      UPSTREAM_TAG: ${{ needs.resolve.outputs.tag }}
+      UPSTREAM_BRANCH: ${{ inputs.upstream_branch }}
     runs-on: ubuntu-22.04
     timeout-minutes: 60
     outputs:
@@ -50,7 +163,7 @@ jobs:
           PY
       - name: Prepare exact official source
         env:
-          UPSTREAM_REF: ${{ inputs.upstream_ref }}
+          UPSTREAM_REF: ${{ needs.resolve.outputs.sha }}
         run: bash scripts/prepare.sh "$UPSTREAM_REF" .work/bridge
       - name: Install official bridge prerequisites
         run: |
@@ -87,8 +200,40 @@ jobs:
             .work/bridge/flutter/ios/Runner/bridge_generated.h
             .work/bridge/bridge-info.json
 
+      - uses: subosito/flutter-action@2783a3f08e1baf891508463f8c6653c258246225
+        with:
+          flutter-version: '3.24.5'
+          channel: stable
+      - name: Analyze patched Flutter interfaces against generated bridge
+        env:
+          SELECTED_VARIANT: ${{ inputs.variant }}
+        run: |
+          source scripts/test-config.sh
+          python3 scripts/compatibility.py prepare --sha "$UPSTREAM_EXPECTED_SHA" --variant "$SELECTED_VARIANT"
+          for variant in standard sos; do
+            [[ "$SELECTED_VARIANT" == both || "$SELECTED_VARIANT" == "$variant" ]] || continue
+            python3 scripts/package.py restore-bridge ".work/validation/$variant" .work/bridge
+          done
+          python3 scripts/compatibility.py analyze --variant "$SELECTED_VARIANT"
+      - name: Preserve Flutter compatibility diagnostics
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: flutter-compatibility-report-${{ github.run_id }}
+          path: |
+            .work/validation/*.json
+            .work/validation/*.md
+            .work/validation/*.log
+          if-no-files-found: warn
+          retention-days: 14
+
   build:
-    needs: bridge
+    needs: [resolve, bridge]
+    if: ${{ !inputs.validation_only }}
+    env:
+      UPSTREAM_EXPECTED_SHA: ${{ needs.resolve.outputs.sha }}
+      UPSTREAM_TAG: ${{ needs.resolve.outputs.tag }}
+      PATCH_REVISION: ${{ needs.resolve.outputs.revision }}
     runs-on: windows-2022
     timeout-minutes: 180
     strategy:
@@ -130,7 +275,7 @@ jobs:
       - uses: microsoft/setup-msbuild@6fb02220983dee41ce7ae257b6f4d8f9bf5ed4ce
       - name: Prepare upstream dependency recipes
         env:
-          UPSTREAM_REF: ${{ inputs.upstream_ref }}
+          UPSTREAM_REF: ${{ needs.resolve.outputs.sha }}
         run: bash scripts/prepare.sh "$UPSTREAM_REF" .work/dependency-source
       - name: Install the official custom Flutter engine
         shell: pwsh
@@ -174,7 +319,7 @@ jobs:
           Pop-Location
       - name: Build and verify selected variant
         env:
-          UPSTREAM_REF: ${{ inputs.upstream_ref }}
+          UPSTREAM_REF: ${{ needs.resolve.outputs.sha }}
           VARIANT: ${{ matrix.variant }}
         run: |
           export RUSTDESK_BRIDGE_DIR="$(cygpath -w "$PWD/.work/bridge-files")"
@@ -183,7 +328,7 @@ jobs:
       - name: Upload verified test bundle
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: rustdesk-1.4.9-upstream2-${{ matrix.variant }}-test-windows-x86_64
-          path: artifacts/rustdesk-1.4.9-upstream2-${{ matrix.variant }}-test-windows-x86_64/
+          name: rustdesk-${{ needs.resolve.outputs.artifact_version }}-${{ matrix.variant }}-test-windows-x86_64
+          path: artifacts/rustdesk-*-${{ matrix.variant }}-test-windows-x86_64/
           if-no-files-found: error
           retention-days: 14
