@@ -29,6 +29,7 @@ jobs:
       tag: ${{ steps.upstream.outputs.upstream_tag }}
       build_needed: ${{ steps.upstream.outputs.build_needed }}
       publish_needed: ${{ steps.upstream.outputs.publish_needed }}
+      patchset: ${{ steps.upstream.outputs.patchset }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
@@ -43,6 +44,7 @@ jobs:
           args=()
           [[ "$FORCE_REBUILD" != true ]] || args+=(--force)
           [[ "$SIMULATE_FAILURE" != true ]] || args+=(--simulate-failure)
+          source scripts/test-config.sh
           python3 scripts/upstream.py stable --ref "$REQUESTED_REF" "${args[@]}"
       - name: Discovery and deduplication report
         if: always()
@@ -73,6 +75,7 @@ jobs:
       contents: write
     env:
       GH_TOKEN: ${{ github.token }}
+      PATCHSET: ${{ needs.discover.outputs.patchset }}
       UPSTREAM_EXPECTED_SHA: ${{ needs.discover.outputs.sha }}
       UPSTREAM_TAG: ${{ needs.discover.outputs.tag }}
     steps:

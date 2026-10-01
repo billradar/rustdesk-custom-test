@@ -19,10 +19,8 @@ def git(path, *args):
     return subprocess.check_output(['git', '-C', str(path), *args], text=True).strip()
 
 def patch_hash(root, folder):
-    digest = hashlib.sha256()
-    for file in sorted((root / 'patches' / folder).glob('*.patch')):
-        digest.update(file.name.encode() + b'\0' + file.read_bytes().replace(b'\r\n', b'\n'))
-    return digest.hexdigest()
+    from patchsets import patch_hash as digest
+    return digest(folder)
 
 command, tree, *args = sys.argv[1:]
 tree = Path(tree)
@@ -85,6 +83,7 @@ elif command == 'package':
     # This is an unsigned unpacked Flutter test bundle, not a production MSI/installer.
     info = {
         'variant': variant,
+        'patchset': os.environ.get('PATCHSET', 'v1'),
         'upstream_repository': 'rustdesk/rustdesk',
         'upstream_ref': ref,
         'upstream_sha': sha,
@@ -104,12 +103,13 @@ elif command == 'package':
         'real_remote_session_validation': 'NOT TESTED',
     }
     (folder / 'build-info.json').write_text(json.dumps(info, indent=2) + '\n')
+    shutil.copy2(root / 'patchsets' / os.environ.get('PATCHSET', 'v1') / 'patchset.json', folder / 'patchset.json')
     # Preserve corresponding patch source and the AGPL licence with the test bundle.
     shutil.copy2(tree / 'LICENCE', folder / 'LICENCE')
     shutil.copy2(root / 'README.md', folder / 'SOURCE-README.md')
-    shutil.copytree(root / 'patches/common', folder / 'patches/common')
+    shutil.copytree(root / 'patchsets' / os.environ.get('PATCHSET', 'v1') / 'common', folder / 'patches/common')
     if variant == 'sos':
-        shutil.copytree(root / 'patches/sos', folder / 'patches/sos')
+        shutil.copytree(root / 'patchsets' / os.environ.get('PATCHSET', 'v1') / 'sos', folder / 'patches/sos')
     entries = []
     for file in sorted(folder.rglob('*')):
         if file.is_file():

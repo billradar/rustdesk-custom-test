@@ -28,11 +28,7 @@ def api(path, missing=False):
             return None
         raise
 
-def patch_hash(folder):
-    digest = hashlib.sha256()
-    for path in sorted((ROOT / 'patches' / folder).glob('*.patch')):
-        digest.update(path.name.encode() + b'\0' + path.read_bytes().replace(b'\r\n', b'\n'))
-    return digest.hexdigest()
+from patchsets import patch_hash, mapped, select
 
 def resolve_ref(ref):
     value = api(f'repos/{OFFICIAL}/commits/{urllib.parse.quote(ref, safe="")}')['sha']
@@ -77,6 +73,9 @@ def main():
         revision = (ROOT / 'patch-revision.txt').read_text().strip()
         if not re.fullmatch(r'[1-9][0-9]{0,5}', revision):
             raise ValueError('Invalid patch revision')
+        name=mapped(data['upstream_sha']) or select(data['upstream_sha'])
+        os.environ['PATCHSET']=name
+        data['patchset']=name
         data.update(revision=revision, common_patch_hash=patch_hash('common'), sos_patch_hash=patch_hash('sos'))
         completed = []
         for variant, suffix in [('standard', 'custom'), ('sos', 'sos')]:
@@ -89,6 +88,8 @@ def main():
                             'Automation-State: complete']
                 if variant == 'sos':
                     expected.append(f'SOS Patch Hash: {data["sos_patch_hash"]}')
+                legacy = data['upstream_sha']=='6c578292e8ebbbec708b76986ba8c4bc7c509747' and name=='v1'
+                if not legacy: expected.append('Patch Set: '+name)
                 assets = {a['name'] for a in release['assets']}
                 if not release['prerelease'] or release['draft'] or not all(s in body for s in expected) or not {'build-info.json', 'SHA256SUMS'} <= assets or not any(s.endswith('.zip') for s in assets):
                     raise ValueError(f'Existing tag {tag} is incomplete or differs; do not overwrite. Review and increase revision.')

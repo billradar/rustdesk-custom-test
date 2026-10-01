@@ -17,6 +17,10 @@ ROOT = Path(__file__).resolve().parent.parent
 
 def validate(folder):
     info = json.loads((folder / 'build-info.json').read_text())
+    from patchsets import verify
+    verify(info['patchset'])
+    if info['patchset'] != os.environ.get('PATCHSET', 'v1'):
+        raise ValueError('Artifact selected patchset mismatch')
     if info['variant'] not in ('standard', 'sos') or info['platform'] != 'windows-x86_64':
         raise ValueError('Unexpected variant/platform')
     if info.get('signed') is not False or info.get('configuration') != 'TEST ONLY':
@@ -68,7 +72,7 @@ def collect(root):
             raise ValueError(f'Expected exactly one {variant} same-run artifact')
         folders[variant] = matches[0]
         infos[variant] = validate(matches[0])
-    for key in ('upstream_sha', 'upstream_tag', 'custom_repository_sha', 'common_patch_hash', 'workflow_run', 'patch_revision'):
+    for key in ('patchset', 'upstream_sha', 'upstream_tag', 'custom_repository_sha', 'common_patch_hash', 'workflow_run', 'patch_revision'):
         if infos['standard'][key] != infos['sos'][key]:
             raise ValueError('Standard/SOS provenance mismatch: ' + key)
     return infos, folders
@@ -117,6 +121,7 @@ Upstream: rustdesk/rustdesk
 Upstream Tag: {tag}
 Upstream SHA: {info['upstream_sha']}
 Custom Repository SHA: {info['custom_repository_sha']}
+Patch Set: {info['patchset']}
 Common Patch Hash: {info['common_patch_hash']}
 SOS Patch Hash: {info['sos_patch_hash'] or 'N/A'}
 Workflow: https://github.com/{TEST_REPO}/actions/runs/{info['workflow_run']}

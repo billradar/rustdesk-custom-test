@@ -53,6 +53,7 @@ jobs:
       revision: ${{ steps.revision.outputs.revision }}
       tag: ${{ steps.revision.outputs.tag }}
       artifact_version: ${{ steps.revision.outputs.artifact_version }}
+      patchset: ${{ steps.patchset.outputs.patchset }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
@@ -83,11 +84,27 @@ jobs:
               f.write('artifact_version='+(tag.lstrip('v') or 'source-'+os.environ['RESOLVED_SHA'][:12])+'\n')
           PYCODE
 
+      - id: patchset
+        name: Resolve generation using frozen SHA and clean independent probes
+        env:
+          RESOLVED_SHA: ${{ steps.resolve.outputs.upstream_sha }}
+        run: |
+          source scripts/test-config.sh
+          bash scripts/select-patchset.sh "$RESOLVED_SHA"
+      - name: Preserve generation selection diagnostics
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: patchset-selection-${{ github.run_id }}
+          path: .work/patchset-selection.json
+          if-no-files-found: warn
+
   preflight:
     needs: resolve
     runs-on: ubuntu-22.04
     timeout-minutes: 45
     env:
+      PATCHSET: ${{ needs.resolve.outputs.patchset }}
       UPSTREAM_EXPECTED_SHA: ${{ needs.resolve.outputs.sha }}
       UPSTREAM_TAG: ${{ needs.resolve.outputs.tag }}
       UPSTREAM_BRANCH: ${{ inputs.upstream_branch }}
@@ -129,6 +146,7 @@ jobs:
   bridge:
     needs: [resolve, preflight]
     env:
+      PATCHSET: ${{ needs.resolve.outputs.patchset }}
       UPSTREAM_EXPECTED_SHA: ${{ needs.resolve.outputs.sha }}
       UPSTREAM_TAG: ${{ needs.resolve.outputs.tag }}
       UPSTREAM_BRANCH: ${{ inputs.upstream_branch }}
@@ -231,6 +249,7 @@ jobs:
     needs: [resolve, bridge]
     if: ${{ !inputs.validation_only }}
     env:
+      PATCHSET: ${{ needs.resolve.outputs.patchset }}
       UPSTREAM_EXPECTED_SHA: ${{ needs.resolve.outputs.sha }}
       UPSTREAM_TAG: ${{ needs.resolve.outputs.tag }}
       PATCH_REVISION: ${{ needs.resolve.outputs.revision }}
@@ -332,3 +351,44 @@ jobs:
           path: artifacts/rustdesk-*-${{ matrix.variant }}-test-windows-x86_64/
           if-no-files-found: error
           retention-days: 14
+
+  validation-report:
+    needs: [resolve, preflight, bridge]
+    if: always()
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          pattern: '*report-${{ github.run_id }}'
+          path: diagnostics
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: patchset-selection-${{ github.run_id }}
+          path: diagnostics/selection
+      - name: Report generation and actual compile coverage
+        env:
+          SELECTED: ${{ needs.resolve.outputs.patchset }}
+          PREFLIGHT_RESULT: ${{ needs.preflight.result }}
+          BRIDGE_RESULT: ${{ needs.bridge.result }}
+        run: |
+          python3 - <<'PYCODE'
+          import json,os
+          from pathlib import Path
+          roots=list(Path('diagnostics').rglob('patchset-selection.json'))
+          report=json.loads(roots[0].read_text()) if roots else {'selected':None,'patchsets':[]}
+          passed=os.environ['PREFLIGHT_RESULT']=='success' and os.environ['BRIDGE_RESULT']=='success'
+          report['overall']='PASS' if passed else 'FAIL'
+          report['Rust fast check']='PASS' if os.environ['PREFLIGHT_RESULT']=='success' else 'NOT PASSED'
+          report['Flutter Analyze']='PASS' if os.environ['BRIDGE_RESULT']=='success' else 'NOT PASSED'
+          report['Bridge']='PASS' if os.environ['BRIDGE_RESULT']=='success' else 'NOT PASSED'
+          for item in report['patchsets']:
+              if item['patchset']==os.environ['SELECTED']:
+                  item['full_compatibility']='COMPATIBLE' if passed else 'NOT VALIDATED'
+          Path('compatibility-report.json').write_text(json.dumps(report,indent=2)+'\n')
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:
+              f.write('## Patch Generation Compatibility\n```json\n'+json.dumps(report,indent=2)+'\n```\n')
+          PYCODE
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: generation-compatibility-${{ github.run_id }}
+          path: compatibility-report.json

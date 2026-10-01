@@ -83,6 +83,8 @@ mod config {
     pub mod keys { pub const OPTION_ALLOW_REMOTE_CONFIG_MODIFICATION: &str = "allow-remote-config-modification"; }
 }
 '''
+if os.environ.get('PATCHSET', 'v1') == 'v2':
+    mock += '\nmod base { pub mod config { pub use crate::config::keys; } }\n'
 test = '''
 fn main() {
     apply_custom_build_defaults();

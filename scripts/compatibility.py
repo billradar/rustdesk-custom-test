@@ -24,7 +24,8 @@ def run(command, log):
         print(log.read_text()[-18000:])
         raise RuntimeError(f'Command failed ({completed.returncode}); see {log}')
 
-def contracts(tree, variant):
+def contracts(tree, variant, patchset=None):
+    patchset=patchset or os.environ.get("PATCHSET", "v1")
     texts = {}
     for file in FILES:
         path = tree / file
@@ -33,11 +34,17 @@ def contracts(tree, variant):
         texts[file] = path.read_text()
     hbb = texts['libs/hbb_common/src/config.rs']
     for token in ('HARD_SETTINGS', 'DEFAULT_SETTINGS', 'BUILTIN_SETTINGS',
-                  'OPTION_ALLOW_REMOTE_CONFIG_MODIFICATION', 'pub fn get_option(',
+                  'pub fn get_option(',
                   'pub fn get_rendezvous_server(', 'pub fn is_incoming_only(', 'pub fn is_disable_settings('):
         if token not in hbb:
             raise RuntimeError('Missing hbb configuration API: ' + token)
+    key_source = hbb if patchset == 'v1' else (tree / 'libs/base/src/config/keys.rs').read_text()
+    if 'OPTION_ALLOW_REMOTE_CONFIG_MODIFICATION' not in key_source:
+        raise RuntimeError('Missing generation configuration API: OPTION_ALLOW_REMOTE_CONFIG_MODIFICATION')
     common = texts['src/common.rs']
+    expected_key = ('config::keys::' if patchset == 'v1' else 'base::config::keys::') + 'OPTION_ALLOW_REMOTE_CONFIG_MODIFICATION'
+    if expected_key not in common:
+        raise RuntimeError('Wrong generation config-key API wiring')
     for token in ('pub fn load_custom_client()', 'fn get_api_server_(',
                   'pub fn get_custom_rendezvous_server(', 'use-permanent-password',
                   'verification-method', 'allow-hide-cm', 'relay-server'):
@@ -71,7 +78,7 @@ def contracts(tree, variant):
                 if token not in text:
                     raise RuntimeError(f'SOS restriction changed: {label}: {token}')
         keys = settings[settings.index('static final List<SettingsTabKey> tabKeys'):settings.index('SettingsTabKey.about')]
-        if keys.count("mainGetBuildinOption(key: 'sos-mode')") != 7:
+        if keys.count("mainGetBuildinOption(key: 'sos-mode')") != (7 if patchset == 'v1' else 6):
             raise RuntimeError('SOS settings guard coverage changed')
     elif 'final isSosMode' in home or '"sos-mode"' in common:
         raise RuntimeError('SOS customization leaked into Standard')
@@ -105,9 +112,10 @@ def build_system(tree):
 def rust_probe(tree):
     common = (tree / 'src/common.rs').read_text()
     helper = common[common.index('fn apply_custom_build_defaults()'):common.index('\npub fn load_custom_client()')]
-    manifest = tree / 'libs/hbb_common/Cargo.toml'
+    crate = 'hbb_common' if os.environ.get('PATCHSET', 'v1') == 'v1' else 'base'
+    manifest = tree / ('libs/' + crate + '/Cargo.toml')
     manifest.write_text(manifest.read_text() + '\n[[bin]]\nname = \"custom_patch_config\"\npath = \"custom_patch_config.rs\"\n')
-    path = tree / 'libs/hbb_common/custom_patch_config.rs'
+    path = tree / ('libs/' + crate + '/custom_patch_config.rs')
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text('use hbb_common::config;\n' + helper + '\nfn main() {\n'
                     'apply_custom_build_defaults();\n'
@@ -126,7 +134,7 @@ def main():
     destination.mkdir(parents=True, exist_ok=True)
     report_path = destination / 'report.json'
     report = json.loads(report_path.read_text()) if report_path.exists() else {
-        'upstream_repository': 'rustdesk/rustdesk', 'upstream_sha': args.sha,
+        'patchset': os.environ.get('PATCHSET', 'v1'), 'upstream_repository': 'rustdesk/rustdesk', 'upstream_sha': args.sha,
         'upstream_branch': os.environ.get('UPSTREAM_BRANCH'), 'variants': {},
         'Runtime/UI Validation': 'SKIPPED BY USER', 'Real Remote Session Validation': 'NOT TESTED'}
     variants = ['standard', 'sos'] if args.variant == 'both' else [args.variant]
@@ -161,7 +169,7 @@ def main():
                 status['Flutter Analyze'] = 'NOT RUN'
                 rust_probe(tree)
             elif args.mode == 'rust':
-                run(['cargo', 'check', '--locked', '--manifest-path', str(tree / 'Cargo.toml'), '-p', 'hbb_common', '--bin', 'custom_patch_config'], log)
+                run(['cargo', 'check', '--locked', '--manifest-path', str(tree / 'Cargo.toml'), '-p', ('hbb_common' if os.environ.get('PATCHSET', 'v1') == 'v1' else 'base'), '--bin', 'custom_patch_config'], log)
                 status['Rust real-config compile'] = 'PASS'
             elif args.mode == 'analyze':
                 with log.open('a') as stream:

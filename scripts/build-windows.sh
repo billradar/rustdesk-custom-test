@@ -9,7 +9,13 @@ python3 "$root/scripts/verify-source.py" --config-only
 mkdir -p "$root/.work" "$root/artifacts"
 workspace=$(mktemp -d "$root/.work/$variant.XXXXXX")
 bash "$root/scripts/prepare.sh" "$ref" "$workspace"
+if [[ -z "${PATCHSET:-}" ]]; then
+    sha=$(git -C "$workspace" rev-parse HEAD)
+    bash "$root/scripts/select-patchset.sh" "$sha" --source "$workspace" --report "$workspace/patchset-selection.json"
+    export PATCHSET=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["selected"])' "$workspace/patchset-selection.json")
+fi
 bash "$root/scripts/apply-patches.sh" "$workspace" "$variant"
+[[ "$PATCHSET" == v1 ]] || export AUTOMATION_MODE=1
 python3 "$root/scripts/verify-source.py" "$workspace" "$variant" ${AUTOMATION_MODE:+--automation}
 if [[ -n "${AUTOMATION_MODE:-}" ]]; then
     python3 - "$workspace" "$variant" "$root/scripts" <<'PY'
