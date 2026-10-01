@@ -1,0 +1,17 @@
+{
+  "repository": "billradar/rustdesk-custom-test",
+  "workflow": "TEST - Upstream development compatibility",
+  "workflow_id": 371827684,
+  "workflow_state": "active",
+  "default_branch": "main",
+  "workflow_path": ".github/workflows/upstream-compatibility.yml",
+  "original_cron": [
+    "23 3 * * *"
+  ],
+  "original_commit": "d2b0cafcab5e3a7dfeea813853665e30c0434141",
+  "original_blob_sha": "b14274606771f2c37658ee75be9722bf0a0ed226",
+  "recorded_at": "2026-10-01T07:20:46Z",
+  "original_workflow_content": "name: TEST - Upstream development compatibility\non:\n  schedule:\n    - cron: '23 3 * * *'\n  workflow_dispatch:\npermissions:\n  contents: read\nconcurrency:\n  group: upstream-compatibility\n  cancel-in-progress: false\njobs:\n  discover:\n    runs-on: ubuntu-22.04\n    outputs:\n      sha: ${{ steps.upstream.outputs.upstream_sha }}\n      branch: ${{ steps.upstream.outputs.upstream_branch }}\n    steps:\n      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5\n        with:\n          persist-credentials: false\n      - id: upstream\n        env:\n          GH_TOKEN: ${{ github.token }}\n        run: python3 scripts/upstream.py default\n      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a\n        with:\n          name: compatibility-upstream-${{ github.run_id }}\n          path: .work/discovery.json\n  compatibility:\n    needs: discover\n    uses: ./.github/workflows/test-build.yml\n    with:\n      upstream_ref: ${{ needs.discover.outputs.sha }}\n      upstream_branch: ${{ needs.discover.outputs.branch }}\n      variant: both\n      validation_only: true\n# This workflow has no release job or write permission. Windows clients are never built here.\n",
+  "temporary_cron": "7,17,27,37,47,57 * * * *",
+  "status": "TEMPORARY_SCHEDULE_PENDING"
+}
