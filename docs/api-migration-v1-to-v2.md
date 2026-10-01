@@ -65,3 +65,14 @@ are rebuilt on the new upstream trees.
 
 Future incoming-only improvements remain deferred. No password redesign, production config,
 signing or platform additions are part of migration.
+
+## Actual candidate compatibility evidence
+
+[Run 36828069170](https://github.com/billradar/rustdesk-custom-test/actions/runs/36828069170) at maintenance commit
+ceb48ac57fcf4aa2d3467ff942637af8c51a2c3d and upstream
+fada664df7a294d1d1a9ca3e7cd3637069122f17: resolver v1 INCOMPATIBLE,
+v2 selected; both Common/SOS config/API preflight, real Rust fast compilation,
+Bridge and Flutter analyze PASS. Downloaded aggregate artifact reports overall PASS
+and selected v2 full_compatibility COMPATIBLE. Windows full-build job SKIPPED by design.
+No client release created. v2 metadata status is compatibility_validated, not Windows-build
+or runtime validated; original runtime/session limitations remain unchanged.

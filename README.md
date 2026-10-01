@@ -125,4 +125,4 @@ patchsets/index.json 对已验证精确 SHA 固定映射到 v1；未知 SHA 用�
 
 v1/v2 metadata 中的 hashes 是审查后固定值，不会在 CI 自动重算并接受修改。已有 v1 冻结；新的实质迁移创建新一代。每次 artifact/build-info/未来 Release Notes 记录 patchset；Standard/SOS 使用同一 resolver 输出。历史 Release 未包含 patchset 字段时，仅精确已验证 1.4.9/v1/hash 组合允许旧格式去重，绝不修改旧 notes/manifest。
 
-手动重新运行 release-check 1.4.9 可验证去重；simulate_failure=true 可验证昂贵 jobs/发布阻断。upstream-compatibility 用 candidate 并保留每代选择诊断。v2 仍为 development，完整兼容性需以新 Actions run 为证据；schedule 仅配置不等于观察到运行。
+手动重新运行 release-check 1.4.9 可验证去重；simulate_failure=true 可验证昂贵 jobs/发布阻断。upstream-compatibility 用 candidate 并保留每代选择诊断。v2 已由 Actions run 36828069170 验证 Common/SOS、Rust 快检、Bridge 与 Flutter analyze，metadata 为 compatibility_validated；未执行开发分支完整 Windows 构建或 Runtime 验证。去重与失败阻断也已 Actions 实测；schedule 仍仅配置，尚未观察到运行。

@@ -1,7 +1,7 @@
 # RustDesk upstream automation report — 2026-10-01
 
-Status: stable automatic build/test-prerelease path PASS; multi-generation implementation
-locally verified, new Actions acceptance PENDING. Entire Phase 3 is NOT yet accepted.
+Status: stable automatic build/test-prerelease path PASS; multi-generation compatibility, dedup and failure blocking
+verified in Actions; acceptance PENDING an actual scheduled event. Entire Phase 3 is NOT yet accepted.
 
 ## Verified Stable pipeline
 
@@ -27,7 +27,7 @@ No full source tree is committed and hbb_common is not vendored.
 v1 common hash: `87b7fb949b3bbc55c6d1e166909e167ebb8e0b6586630c0269f6440ba0542531`.
 v1 SOS hash: `d752022800a8008b10aedd1a79412a00af027464b1754b068c35a0b5b439ea34`.
 v1 metadata status: validated, backed by the actual stable run above; runtime validation
-is not part of that status. v2 status: development until real Rust/Flutter/Bridge evidence.
+is not part of that status. v2 status: compatibility_validated, backed by real Rust/Flutter/Bridge run 36828069170. This is not full Windows-build or runtime validation.
 
 ## API migration
 
@@ -41,7 +41,7 @@ restrictions to remaining entries. No native controller prohibition or password 
 
 Original development detection [run 36819199270](https://github.com/billradar/rustdesk-custom-test/actions/runs/36819199270)
 correctly failed API checks and skipped further jobs. This detection is functioning; it
-is not a compatibility PASS. New v2 Actions execution is pending.
+is not a compatibility PASS. New v2 Actions execution PASS: [run 36828069170](https://github.com/billradar/rustdesk-custom-test/actions/runs/36828069170). Resolver reports v1 incompatible, v2 selected/COMPATIBLE, overall PASS at upstream fada664df7a294d1d1a9ca3e7cd3637069122f17.
 
 ## Resolver / regression evidence
 
@@ -71,15 +71,15 @@ is backfilled into old releases. New unknown releases require explicit Patch Set
 
 Release deduplication: ACTIONS PASS — [run 36827239365](https://github.com/billradar/rustdesk-custom-test/actions/runs/36827239365); already_processed=true, build_needed=false, publish_needed=false; build/prerelease SKIPPED.
 Synthetic patch failure gate: ACTIONS PASS — [run 36827438848](https://github.com/billradar/rustdesk-custom-test/actions/runs/36827438848); expected preflight FAIL at nonexistent-simulation, bridge/Windows/prerelease SKIPPED, diagnostic report uploaded.
-New development v2 Rust/Flutter/Bridge: NOT RUN — [run 36827109368](https://github.com/billradar/rustdesk-custom-test/actions/runs/36827109368) selected v2 successfully, then regression fixtures failed because they inherited PATCHSET=v2 while constructing v1 metadata. Fixture isolation fixed; strict release validator unchanged. Requires a new manual run at the fix commit.
+New development v2 Rust/Flutter/Bridge: ACTIONS PASS — [run 36828069170](https://github.com/billradar/rustdesk-custom-test/actions/runs/36828069170). All preflight, native compilation, bridge and Flutter checks passed; generation report downloaded and inspected. The earlier fixture failure is resolved; release validation remains strict.
 New development Windows Standard/SOS: NOT RUN (optional artifact-only deep validation).
 Scheduled execution: CONFIGURED / NOT OBSERVED. No schedule PASS is inferred from manual runs.
 
-Run upstream-compatibility manually after the migration commit. Run release-check on
-1.4.9 with force=false/simulate=false to verify cheap dedup. Then run with simulate=true
-and force=false to prove early failure, diagnostic artifact and skipped build/release.
-The GitHub connector lacks workflow_dispatch; manual start is still required. Full Phase 3
-acceptance remains pending these actual tests and an observed schedule event.
+No manual rerun is currently required for compatibility, dedup or failure blocking.
+The expected simulated-failure run remains red by design, with costly jobs/release skipped.
+Windows build job in development compatibility is skipped by design; no development release.
+All observed runs are workflow_dispatch, not schedule. Final stage acceptance still waits
+for a real scheduled event; it is not inferred or marked PASS prematurely.
 
 ## Security / limitations / repository safety
 
