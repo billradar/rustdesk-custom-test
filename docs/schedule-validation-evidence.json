@@ -1,0 +1,63 @@
+{
+  "repository": "billradar/rustdesk-custom-test",
+  "workflow": "TEST - Upstream development compatibility",
+  "workflow_id": 371827684,
+  "default_branch": "main",
+  "workflow_path": ".github/workflows/upstream-compatibility.yml",
+  "preconditions": {
+    "on_default_branch": true,
+    "state": "active",
+    "repository_fork": false,
+    "repository_archived": false,
+    "repository_disabled": false,
+    "workflow_dispatch_preserved": true
+  },
+  "original": {
+    "cron": [
+      "23 3 * * *"
+    ],
+    "commit": "d2b0cafcab5e3a7dfeea813853665e30c0434141",
+    "blob_sha": "b14274606771f2c37658ee75be9722bf0a0ed226",
+    "snapshot": "schedule-validation-original.json"
+  },
+  "temporary": {
+    "cron": "7,17,27,37,47,57 * * * *",
+    "commit": "addba6c006444a6b02a5002818a50f49a8073aa3",
+    "status": "ENABLED / OBSERVATION ATTEMPTED / REMOVED"
+  },
+  "observation": {
+    "started_at": "2026-10-01T07:20:46Z",
+    "last_checked_at": "2026-10-01T08:02:27.220633+00:00",
+    "expected_windows_utc": [
+      "07:27",
+      "07:37",
+      "07:47",
+      "07:57"
+    ],
+    "schedule_runs": 0,
+    "run_id": null,
+    "run_url": null,
+    "upstream_sha": null,
+    "selected_patchset": null,
+    "result": "CONFIGURED / NOT OBSERVED",
+    "platform_cause": "NOT DETERMINED"
+  },
+  "restoration": {
+    "commit": "2100f64b081d6b9e762aade5295bfd395e238303",
+    "blob_sha": "b14274606771f2c37658ee75be9722bf0a0ed226",
+    "exact_content": true,
+    "temporary_cron_removed": true,
+    "original_cron_restored": true,
+    "checked_at": "2026-10-01T08:02:45.017Z"
+  },
+  "phase3": "PENDING SCHEDULE EVIDENCE",
+  "existing_test_releases_unchanged": true,
+  "old_repositories": {
+    "billradar/rustdesk": "ZERO WRITES",
+    "billradar/rustdesk-sos": "ZERO WRITES"
+  },
+  "runtime_ui": "SKIPPED BY USER",
+  "real_remote_session": "NOT TESTED",
+  "code_signing": "NOT ENABLED",
+  "configuration": "TEST ONLY"
+}

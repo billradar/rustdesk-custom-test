@@ -7,7 +7,7 @@ v1 frozen and stable source regression: PASS locally; patch bytes/hash unchanged
 v2 development generation: Common/SOS/API, Rust fast check, Bridge and Flutter analyze ACTIONS PASS — [run 36828069170](https://github.com/billradar/rustdesk-custom-test/actions/runs/36828069170). Optional full development Windows builds NOT RUN.
 Release deduplication: ACTIONS PASS — [run 36827239365](https://github.com/billradar/rustdesk-custom-test/actions/runs/36827239365); already_processed=true, build_needed=false, publish_needed=false; build/prerelease SKIPPED.
 Failure gate: ACTIONS PASS — [run 36827438848](https://github.com/billradar/rustdesk-custom-test/actions/runs/36827438848); simulated conflict detected, bridge/Windows/prerelease SKIPPED; diagnostic artifact preserved.
-Schedule: CONFIGURED / NOT OBSERVED.
+Schedule: CONFIGURED / NOT OBSERVED. Temporary high-frequency observation covered four windows without a schedule event; removed and original `23 3 * * *` restored exactly. See [evidence](schedule-validation-evidence.json).
 Overall stage acceptance: PENDING.
 
 Build Reproduction: PASS.

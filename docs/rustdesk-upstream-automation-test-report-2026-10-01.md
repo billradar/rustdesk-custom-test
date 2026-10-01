@@ -101,3 +101,36 @@ All writes target only billradar/rustdesk-custom-test. Old billradar/rustdesk an
 billradar/rustdesk-sos receive zero writes/triggers. Existing releases untouched.
 No production repository, production config/release, old Actions deletion/archive,
 signing or platform expansion performed.
+
+## Real schedule observation attempt — 2026-10-01
+
+Workflow `TEST - Upstream development compatibility` (ID 371827684) was active on
+default branch `main`. Repository was public, non-fork, not archived or disabled.
+The original exact workflow and cron were saved in
+[schedule-validation-original.json](schedule-validation-original.json).
+
+Original cron: `23 3 * * *` (UTC).
+Original main commit: `d2b0cafcab5e3a7dfeea813853665e30c0434141`.
+Temporary commit: `addba6c006444a6b02a5002818a50f49a8073aa3`, cron
+`7,17,27,37,47,57 * * * *`; workflow_dispatch and other logic preserved.
+
+Read-only polling from 2026-10-01T07:20:46Z to 2026-10-01T08:02:27Z covered expected
+07:27, 07:37, 07:47 and 07:57 UTC opportunities. Final GitHub API response for
+this workflow filtered to event=schedule had total_count=0. No run ID, upstream
+SHA or selected patchset exists for this attempt. No manual event substitutes for it.
+
+Scheduled execution: **CONFIGURED / NOT OBSERVED**.
+Overall Phase 3: **PENDING**. Platform cause is not determined; the delay does
+not prove a workflow failure or a compatibility PASS.
+
+To avoid leaving the temporary high frequency plan in place, it was removed via
+independent non-force commit `2100f64b081d6b9e762aade5295bfd395e238303`.
+Remote main was re-read: restored content exactly equals the saved original,
+blob SHA `b14274606771f2c37658ee75be9722bf0a0ed226`, temporary cron absent, only original cron
+and dispatch retained. No second low-frequency run was awaited.
+
+[Machine-readable evidence](schedule-validation-evidence.json).
+Existing two test release IDs, asset IDs/sizes and update times remained unchanged.
+Only the test repository received writes; old Standard/SOS repos received ZERO WRITES.
+No patches, build scripts, release pipeline, credentials or production state changed.
+Runtime/UI remains SKIPPED BY USER; real remote session NOT TESTED.
