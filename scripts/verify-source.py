@@ -39,9 +39,12 @@ if not args.workspace or not args.variant:
 workspace = Path(args.workspace)
 expected = json.loads((ROOT / 'scripts/expected-ui.json').read_text())[args.variant]
 for name, digest in expected.items():
-    if hashlib.sha256((workspace / name).read_bytes()).hexdigest() != digest:
+    # Git for Windows may check out text as CRLF. Compare canonical LF bytes;
+    # preserve every other byte, including whitespace, so content changes still fail.
+    canonical = (workspace / name).read_bytes().replace(b'\r\n', b'\n')
+    if hashlib.sha256(canonical).hexdigest() != digest:
         raise SystemExit(f'Legacy UI mismatch: {name}')
-print('Legacy Flutter UI byte comparison: PASS')
+print('Legacy Flutter UI comparison (canonical LF bytes): PASS')
 common = (workspace / 'src/common.rs').read_text()
 helper = common[common.index('fn apply_custom_build_defaults()'):common.index('\npub fn load_custom_client()')]
 if common.count('        apply_custom_build_defaults();') != 1 or common.count('    apply_custom_build_defaults();') != 2:
