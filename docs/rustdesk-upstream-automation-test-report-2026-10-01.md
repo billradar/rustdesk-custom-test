@@ -69,9 +69,9 @@ is backfilled into old releases. New unknown releases require explicit Patch Set
 
 ## Remaining Actions acceptance
 
-Release deduplication: LOCAL PASS / ACTIONS NOT TESTED.
-Synthetic patch failure gate: LOCAL PASS / ACTIONS NOT TESTED.
-New development v2 Rust/Flutter/Bridge: NOT RUN.
+Release deduplication: ACTIONS PASS — [run 36827239365](https://github.com/billradar/rustdesk-custom-test/actions/runs/36827239365); already_processed=true, build_needed=false, publish_needed=false; build/prerelease SKIPPED.
+Synthetic patch failure gate: ACTIONS PASS — [run 36827438848](https://github.com/billradar/rustdesk-custom-test/actions/runs/36827438848); expected preflight FAIL at nonexistent-simulation, bridge/Windows/prerelease SKIPPED, diagnostic report uploaded.
+New development v2 Rust/Flutter/Bridge: NOT RUN — [run 36827109368](https://github.com/billradar/rustdesk-custom-test/actions/runs/36827109368) selected v2 successfully, then regression fixtures failed because they inherited PATCHSET=v2 while constructing v1 metadata. Fixture isolation fixed; strict release validator unchanged. Requires a new manual run at the fix commit.
 New development Windows Standard/SOS: NOT RUN (optional artifact-only deep validation).
 Scheduled execution: CONFIGURED / NOT OBSERVED. No schedule PASS is inferred from manual runs.
 

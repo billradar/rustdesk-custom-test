@@ -67,14 +67,14 @@ class ReleaseGateTests(unittest.TestCase):
     def sums(self, folder):
         (folder/'SHA256SUMS').write_text(''.join(hashlib.sha256(p.read_bytes()).hexdigest()+'  '+p.relative_to(folder).as_posix()+'\n' for p in sorted(folder.rglob('*')) if p.is_file() and p.name!='SHA256SUMS'))
     def test_pair_requires_matching_source_and_both_variants(self):
-        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, {'GITHUB_RUN_ID':'','UPSTREAM_EXPECTED_SHA':'','UPSTREAM_TAG':'','GITHUB_SHA':''}):
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, {'PATCHSET':'v1','GITHUB_RUN_ID':'','UPSTREAM_EXPECTED_SHA':'','UPSTREAM_TAG':'','GITHUB_SHA':''}):
             root=Path(tmp); self.payload(root/'standard','standard')
             with self.assertRaises(ValueError): release.collect(root)
             info=self.payload(root/'sos','sos'); release.collect(root)
             info['upstream_sha']='c'*40; (root/'sos/build-info.json').write_text(json.dumps(info)); self.sums(root/'sos')
             with self.assertRaises(ValueError): release.collect(root)
     def test_checksum_architecture_and_runtime_lies_block(self):
-        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, {'GITHUB_RUN_ID':'','UPSTREAM_EXPECTED_SHA':'','UPSTREAM_TAG':'','GITHUB_SHA':''}):
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, {'PATCHSET':'v1','GITHUB_RUN_ID':'','UPSTREAM_EXPECTED_SHA':'','UPSTREAM_TAG':'','GITHUB_SHA':''}):
             folder=Path(tmp); info=self.payload(folder,'standard'); release.validate(folder)
             exe=folder/'rustdesk/rustdesk.exe'; data=bytearray(exe.read_bytes()); data[68:70]=b'\x4c\x01'; exe.write_bytes(data)
             with self.assertRaises(ValueError): release.validate(folder)
