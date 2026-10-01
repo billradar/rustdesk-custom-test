@@ -161,10 +161,17 @@ jobs:
           VCPKG_DEFAULT_HOST_TRIPLET: x64-windows-static
         run: '"$VCPKG_ROOT/vcpkg" install --triplet x64-windows-static --x-install-root="$VCPKG_ROOT/installed"'
       - name: Build official WindowInjection helper
+        shell: pwsh
         run: |
+          $ErrorActionPreference = 'Stop'
           git clone https://github.com/rustdesk-org/RustDeskTempTopMostWindow .work/topmost
+          if ($LASTEXITCODE -ne 0) { throw 'WindowInjection clone failed' }
           git -C .work/topmost checkout --detach ecd8d6a139eee76845ea66423fb739af450fda90
-          (cd .work/topmost && MSYS_NO_PATHCONV=1 msbuild WindowInjection/WindowInjection.vcxproj -p:Configuration=Release -p:Platform=x64 /p:TargetVersion=Windows10)
+          if ($LASTEXITCODE -ne 0) { throw 'WindowInjection checkout failed' }
+          Push-Location .work/topmost
+          & MSBuild.exe WindowInjection/WindowInjection.vcxproj /p:Configuration=Release /p:Platform=x64 /p:TargetVersion=Windows10
+          if ($LASTEXITCODE -ne 0) { throw 'WindowInjection build failed' }
+          Pop-Location
       - name: Build and verify selected variant
         env:
           UPSTREAM_REF: ${{ inputs.upstream_ref }}
